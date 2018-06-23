@@ -34,6 +34,7 @@ parser.add_argument('--resume_training', action='store_true', help='Resume train
 parser.add_argument('--resume_model', type=str, default='', help='The model we resume')
 args = parser.parse_args()
 
+
 def main():
     global args
     print "Loading training set and testing set..."
@@ -94,8 +95,6 @@ def main():
             save_name = os.path.join(args.output_dir, '{}_best.h5'.format(args.model_name, epoch))
             network.save_net(save_name, net)
 
-        
-
 
 def train(train_loader, target_net, optimizer, epoch):
     batch_time = network.AverageMeter()
@@ -103,8 +102,6 @@ def train(train_loader, target_net, optimizer, epoch):
     train_loss = network.AverageMeter()
     train_loss_obj_box = network.AverageMeter()
     train_loss_obj_entropy = network.AverageMeter()
-    # train_loss_reg_box = network.AverageMeter()
-    # train_loss_reg_entropy = network.AverageMeter()
 
     target_net.train()
     end = time.time()
@@ -122,10 +119,6 @@ def train(train_loader, target_net, optimizer, epoch):
         train_loss_obj_box.update(target_net.loss_box.data[0], im_data.size(0))
         # object score
         train_loss_obj_entropy.update(target_net.cross_entropy.data[0], im_data.size(0))
-        # # region bbox reg
-        # train_loss_reg_box.update(target_net.loss_box_region.data[0], im_data.size(0))
-        # # region score
-        # train_loss_reg_entropy.update(target_net.cross_entropy_region.data[0], im_data.size(0))
 
         # backward
         optimizer.zero_grad()
@@ -149,7 +142,6 @@ def train(train_loader, target_net, optimizer, epoch):
                    epoch, i + 1, len(train_loader), batch_time=batch_time,lr=args.lr, 
                    data_time=data_time, loss=train_loss, 
                    cls_loss_object=train_loss_obj_entropy, reg_loss_object=train_loss_obj_box))
-
 
 
 def test(test_loader, target_net):
@@ -191,6 +183,7 @@ def test(test_loader, target_net):
     RPN_recall = recall_correct / float(recall_total)
     print '====== Done Testing ===='
     return recall, RPN_precision, RPN_recall
+
 
 if __name__ == '__main__':
     main()

@@ -5,38 +5,9 @@ import torch.nn.functional as F
 from torch.nn.modules.module import Module
 from torch.autograd import Variable
 
-import network
-from network import FC, Conv2d
+import faster_rcnn.network
+from faster_rcnn.network import FC, Conv2d
 
-# class IterativeStructure(Module):
-#     '''
-#     :param: s_feature: Variable size: batch * 512
-#     :param: r_feature: Variable size: batch * 512
-#     :param: o_feature: Variable size: batch * 512
-#     '''
-#     def __init__(self, nhidden):
-#         super(IterativeStructure, self).__init__()
-#         self.linear = nn.Linear(3 * nhidden, nhidden)
-#         self.F_s = nn.Linear(nhidden, nhidden)
-#         self.F_o = nn.Linear(nhidden, nhidden)
-#         self.F_s_p = nn.Linear(nhidden, nhidden)
-#         self.F_o_p = nn.Linear(nhidden, nhidden)
-#
-#     def forward(self, s_feature, r_feature, o_feature):
-#         concat = torch.cat((s_feature, r_feature, o_feature), 1)  # [batch, 1536]
-#         weight = self.linear(F.relu(concat))  # [batch, 512]
-#         weight = F.sigmoid(weight).mean(1).unsqueeze(1)  # [batch, 1]
-#         # weight = weight.expand(weight.size()[0], s_feature.size()[1])  # [batch, 512]
-#
-#         pred_tilde = torch.mul(r_feature, weight)
-#         out_s = s_feature + self.F_s(F.relu(pred_tilde))  # [batch, 512]
-#         out_o = o_feature + self.F_o(F.relu(pred_tilde))
-#
-#         sub_tilde = torch.mul(s_feature, weight)
-#         obj_tilde = torch.mul(o_feature, weight)
-#         out_r = r_feature + self.F_s_p(F.relu(sub_tilde)) + self.F_o_p(F.relu(obj_tilde))
-#
-#         return out_s, out_r, out_o
 
 class IterativeStructure(Module):
     '''
@@ -293,7 +264,6 @@ class GraphicalModel(Module):
         if self.dropout:
             out_r = F.dropout(out_r, training=self.training)
 
-
         r = self.g(r_feature)
         r_new = r_feature * r
 
@@ -315,7 +285,3 @@ class GraphicalModel(Module):
             out_o = F.dropout(out_o, training=self.training)
 
         return out_s, out_r, out_o
-
-
-
-

@@ -1,0 +1,4 @@
+data/
+pretrained_models/
+output/
+*.pyc

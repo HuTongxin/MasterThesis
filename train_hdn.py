@@ -69,7 +69,6 @@ overall_train_rpn_loss = network.AverageMeter()
 optimizer_select = 0
 
 
-
 def main():
     global args, optimizer_select
     # To set the model name automatically
@@ -109,8 +108,7 @@ def main():
                  iteration_type = args.iteration_type,
                  idx2obj=train_set._object_classes,
                  idx2rel=train_set._predicate_classes)
-    # print('train_hdn idx2obj: {}'.format(train_set._object_classes))
-    # print('train_hdn idx2rel: {}'.format(train_set._predicate_classes))
+
     params = list(net.parameters())
     for param in params:
         print param.size()
@@ -128,7 +126,6 @@ def main():
         shutil.rmtree(logger_path)
     configure(logger_path, flush_secs=5) # setting up the logger
 
-
     network.set_trainable(net, True)
     network.set_trainable(net.rpn, False)
     #  network.weights_normal_init(net, dev=0.01)
@@ -138,7 +135,6 @@ def main():
         network.load_net(args.saved_model_path, net.rpn)
         net.reinitialize_fc_layers()
         optimizer_select = 1       
-
 
     elif args.resume_training:
         print 'Resume training from: {}'.format(args.resume_model)
@@ -155,32 +151,23 @@ def main():
         optimizer_select = 0
         args.train_all = True
 
-
     optimizer = network.get_optimizer(lr,optimizer_select, args, 
                 vgg_features_var, rpn_features, hdn_features)
-
 
     target_net = net
     if not os.path.exists(args.output_dir):
         os.mkdir(args.output_dir)
 
-
     top_Ns = [50, 100]
     best_recall = np.zeros(len(top_Ns))
-
 
     if args.evaluate:
         # show_result(test_loader, test_set, net, 5)
         recall = test(test_loader, net, top_Ns)
-        # recall, bicls_precision, bicls_recall = test(test_loader, net, top_Ns)
         print('======= Testing Result =======') 
         for idx, top_N in enumerate(top_Ns):
             print('[Recall@{top_N:d}] {recall:2.3f}%% (best: {best_recall:2.3f}%%)'.format(
                 top_N=top_N, recall=recall[idx] * 100, best_recall=best_recall[idx] * 100))
-        # test 'have relationship or not'
-        # print('\t[Precision] {precision:2.3f}%%'.format(precision=bicls_precision * 100))
-        # print('\t[Recall] {recall:2.3f}%%'.format(recall=bicls_recall * 100))
-
         print('==============================')
     else:
         for epoch in range(0, args.max_epoch):           
@@ -196,12 +183,7 @@ def main():
             network.save_net(save_name, net)
             print('save model: {}'.format(save_name))
 
-
-            # Testing
-            # network.set_trainable(net, False) # Without backward(), requires_grad takes no effect
-
             recall = test(test_loader, net, top_Ns)
-            # recall, bicls_precision, bicls_recall = test(test_loader, net, top_Ns)
 
             if np.all(recall > best_recall):
                 best_recall = recall
@@ -213,9 +195,6 @@ def main():
             for idx, top_N in enumerate(top_Ns):
                 print('\t[Recall@{top_N:d}] {recall:2.3f}%% (best: {best_recall:2.3f}%%)'.format(
                     top_N=top_N, recall=recall[idx] * 100, best_recall=best_recall[idx] * 100)),
-            # test 'have relationship or not'
-            # print('\t[Precision] {precision:2.3f}%%'.format(precision=bicls_precision*100))
-            # print('\t[Recall] {recall:2.3f}%%'.format(recall=bicls_recall * 100))
 
             # updating learning policy
             if epoch % args.step_size == 0 and epoch > 0:
@@ -230,10 +209,14 @@ def main():
                 # update optimizer and corresponding requires_grad state
                 optimizer = network.get_optimizer(lr, optimizer_select, args, 
                             vgg_features_var, rpn_features, hdn_features)
-                
+
 
 def train(train_loader, target_net, optimizer, epoch):
     global args
+
+    # -----------------------------
+    # initialization of loggers
+    # -----------------------------
     # Overall loss logger
     global overall_train_loss
     global overall_train_rpn_loss
@@ -250,10 +233,6 @@ def train(train_loader, target_net, optimizer, epoch):
     train_o_box_loss = network.AverageMeter()
     # relationship cls loss
     train_r_cls_loss = network.AverageMeter()
-    # add an additional block for object classification
-    # train_object_loss = network.AverageMeter()
-    # relationship: yes or no
-    # train_bicls_loss = network.AverageMeter()
 
     # RPN loss
     train_rpn_loss = network.AverageMeter()
@@ -261,8 +240,9 @@ def train(train_loader, target_net, optimizer, epoch):
     accuracy_s = network.AccuracyMeter()
     accuracy_o = network.AccuracyMeter()
     accuracy_r = network.AccuracyMeter()
-    # accuracy_bicls = network.AccuracyMeter()
-    # accuracy_object = network.AccuracyMeter()
+    # -----------------------------
+    # initialization of loggers ends
+    # -----------------------------
 
     target_net.train()
     end = time.time()
@@ -281,15 +261,15 @@ def train(train_loader, target_net, optimizer, epoch):
         else:
             loss = target_net.loss
 
-
+        # -----------------------------
+        # update logger
+        # -----------------------------
         train_loss.update(target_net.loss.data.cpu().numpy()[0], im_data.size(0))
         train_s_cls_loss.update(target_net.cross_entropy_s.data.cpu().numpy()[0], im_data.size(0))
         train_o_cls_loss.update(target_net.cross_entropy_o.data.cpu().numpy()[0], im_data.size(0))
         train_s_box_loss.update(target_net.loss_s_box.data.cpu().numpy()[0], im_data.size(0))
         train_o_box_loss.update(target_net.loss_o_box.data.cpu().numpy()[0], im_data.size(0))
         train_r_cls_loss.update(target_net.cross_entropy_r.data.cpu().numpy()[0], im_data.size(0))
-        # train_bicls_loss.update(target_net.bicls_loss.data.cpu().numpy()[0], im_data.size(0))
-        # train_object_loss.update(target_net.cross_entropy_object.data.cpu().numpy()[0], im_data.size(0))
         
         train_rpn_loss.update(target_net.rpn.loss.data.cpu().numpy()[0], im_data.size(0))
         overall_train_loss.update(target_net.loss.data.cpu().numpy()[0], im_data.size(0))
@@ -298,8 +278,9 @@ def train(train_loader, target_net, optimizer, epoch):
         accuracy_s.update(target_net.tp_s, target_net.tf_s, target_net.fg_cnt_s, target_net.bg_cnt_s)
         accuracy_o.update(target_net.tp_o, target_net.tf_o, target_net.fg_cnt_o, target_net.bg_cnt_o)
         accuracy_r.update(target_net.tp_r, target_net.tf_r, target_net.fg_cnt_r, target_net.bg_cnt_r)
-        # accuracy_bicls.update(target_net.tp_bicls, target_net.tf_bicls, target_net.fg_bicls, target_net.bg_bicls)
-        # accuracy_object.update(target_net.tp, target_net.tf, target_net.fg_cnt, target_net.bg_cnt)
+        # -----------------------------
+        # end
+        # -----------------------------
 
         optimizer.zero_grad()
         loss.backward()
@@ -311,8 +292,11 @@ def train(train_loader, target_net, optimizer, epoch):
         batch_time.update(time.time() - end)
         end = time.time()
 
+        # -----------------------------
+        # print loss
+        # -----------------------------
         # Logging the training loss
-        if  (i + 1) % args.log_interval == 0:
+        if (i + 1) % args.log_interval == 0:
             loss_list.append(train_loss.avg)
             print('\nEpoch: [{0}][{1}/{2}] [lr: {lr}] [Solver: {solver}]\n'
                   '\tBatch_Time: {batch_time.avg: .3f}s\t'
@@ -326,34 +310,22 @@ def train(train_loader, target_net, optimizer, epoch):
             print('\tr_cls_loss: %.4f,' % (train_r_cls_loss.avg)),
             print('\t[Loss]\to_cls_loss: %.4f\to_box_loss: %.4f' %
                   (train_o_cls_loss.avg, train_o_box_loss.avg)),
-            # print('\tobject_loss: %.4f,' % (train_object_loss.avg)),
-
-            # print('\tbi_cls_loss: %.4f,' % (train_bicls_loss.avg)),
-
             print('\n\t[s]\ttp: %.2f, \tfg=%d' %
                   (accuracy_s.ture_pos*100., accuracy_s.foreground))
             print('\t[r]\ttp: %.2f, \ttf: %.2f, \tfg/bg=(%d/%d)' %
                   (accuracy_r.ture_pos*100., accuracy_r.true_neg*100., accuracy_r.foreground, accuracy_r.background))
             print('\t[o]\ttp: %.2f, \tfg=%d' %
                   (accuracy_o.ture_pos * 100., accuracy_o.foreground))
-            # print('\n\t[object]\ttp: %.2f, \ttf: %.2f, \tfg/bg=(%d/%d)' %
-            #       (accuracy_object.ture_pos * 100., accuracy_object.true_neg * 100., accuracy_object.foreground, accuracy_object.background))
-
-            # print('\t[bicls]\ttp: %.2f, \ttf: %.2f, \tfg/bg=(%d/%d)' %
-                  # (accuracy_bicls.ture_pos*100., accuracy_bicls.true_neg*100., accuracy_bicls.foreground, accuracy_bicls.background))
-
+        # -----------------------------
+        # end
+        # -----------------------------
 
             # logging to tensor board
             log_value('FRCNN loss', overall_train_loss.avg, overall_train_loss.count)
             log_value('RPN_loss loss', overall_train_rpn_loss.avg, overall_train_rpn_loss.count)
-            
-            
-#        if (i+1)%20 == 0:
-#            break
-#
+
     return loss_list
 
-    
 
 def test(test_loader, net, top_Ns):
     """test the network, print the number of correct predictions
@@ -382,15 +354,6 @@ def test(test_loader, net, top_Ns):
         total_cnt_t, rel_cnt_correct_t = net.evaluate(
             im_data, im_info, gt_objects.numpy()[0], gt_relationships.numpy()[0], top_Ns=top_Ns, nms=True)
 
-        # calculate precision and recall of 'have relationship or not'
-        # precision = correct relationships/ all the relationships found   # recall = correct relationships/ gt_relationships
-        # total_cnt_t, rel_cnt_correct_t, precision_correct_t, precision_total_t, recall_correct_t, recall_total_t = net.evaluate(
-        #     im_data, im_info, gt_objects.numpy()[0], gt_relationships.numpy()[0], top_Ns = top_Ns, nms=True)
-        # precision_total += precision_total_t
-        # precision_correct += precision_correct_t
-        # recall_total += recall_total_t
-        # recall_correct += recall_correct_t
-
         rel_cnt += total_cnt_t
         rel_cnt_correct += rel_cnt_correct_t
         batch_time.update(time.time() - end)
@@ -399,16 +362,12 @@ def test(test_loader, net, top_Ns):
             for idx, top_N in enumerate(top_Ns):
                 print '[%d/%d][Evaluation] Top-%d Recall: %2.3f%%' % (
                     i+1, len(test_loader), top_N, rel_cnt_correct[idx] / float(rel_cnt) * 100)
-                # print 'precision', precision_correct / float(precision_total) * 100
-                # print 'recall', recall_correct / float(recall_total) * 100
 
     recall = rel_cnt_correct / rel_cnt
-    # bicls_precision = precision_correct / float(precision_total)
-    # bicls_recall = recall_correct / float(recall_total)
     print '====== Done Testing ===='
 
     return recall
-    # return recall, bicls_precision, bicls_recall
+
 
 def show_result(test_loader, test_set, net, N):
     '''to print the test image

@@ -15,18 +15,19 @@ from torch.nn.modules.module import Module
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-import gmm
-from gmm import apply_gmm
+import faster_rcnn.additional_model.gmm
+from faster_rcnn.additional_model.gmm import apply_gmm
 
-import network
-from network import FC, Conv2d
+import faster_rcnn.network
+from faster_rcnn.network import FC, Conv2d
+
 
 class GaussianMixtureModel(Module):
     def __init__(self, input, nhidden):
         super(GaussianMixtureModel, self).__init__()
 
         self.fc_gmm = FC(input, 2 * nhidden, relu=True)
-        network.weights_normal_init(self.fc_gmm, 0.01)
+        faster_rcnn.network.weights_normal_init(self.fc_gmm, 0.01)
 
     def forward(self, rois_1, rois_2, r_feature, dropout, training):
         """
@@ -38,7 +39,7 @@ class GaussianMixtureModel(Module):
         pairs = torch.cat((rois_1.data[:, 1:], rois_2.data[:, 1:]), 1)  # [batch,8](xs1,ys1,xs2,ys2,xo1,yo1,xo2,yo2)
         pairs = pairs.cpu().numpy()
         spatial_vector = apply_gmm(pairs, r"/home/hutong/tmp/xin/MSDN/tools/", r"gmmmodel_10000randnum_3000pic.m")
-        spatial_vector = network.np_to_variable(spatial_vector, is_cuda=True)  # [batch,400]
+        spatial_vector = faster_rcnn.network.np_to_variable(spatial_vector, is_cuda=True)  # [batch,400]
 
         union_feature = torch.cat((r_feature, spatial_vector), 1)  # [batch,25488]
         cat_feature = self.fc_gmm(union_feature)  # [batch, 1024]
@@ -56,8 +57,8 @@ class DualMask(Module):
         self.conv3 = Conv2d(128, 64, kernel_size=8)
         self.fc1_dm = FC(18496, nhidden, relu=True)
         self.fc2_dm = FC(25600, 2 * nhidden, relu=True)
-        network.weights_normal_init(self.fc1_dm, 0.01)
-        network.weights_normal_init(self.fc2_dm, 0.01)
+        faster_rcnn.network.weights_normal_init(self.fc1_dm, 0.01)
+        faster_rcnn.network.weights_normal_init(self.fc2_dm, 0.01)
 
     def forward(self, im_info, rois_1, rois_2, r_feature, dropout, training):
         """
@@ -72,7 +73,7 @@ class DualMask(Module):
         mask_pairs = np.zeros((mask1.shape[0], 2, mask1.shape[1], mask1.shape[2]))
         mask_pairs[:, 0, :, :] = mask1
         mask_pairs[:, 1, :, :] = mask2
-        mask_pairs = network.np_to_variable(mask_pairs, is_cuda=True)  # [batch,2,32,32]
+        mask_pairs = faster_rcnn.network.np_to_variable(mask_pairs, is_cuda=True)  # [batch,2,32,32]
 
         mask_pairs = self.conv1(mask_pairs)  # [batch,96,28,28]
         mask_pairs = self.conv2(mask_pairs)  # [batch,128,24,24]
@@ -178,8 +179,6 @@ class GeometricSpatialFeature(Module):
         return torch.cat(output, dim=1)
 
 
-
-
 def get_dual_mask(im_info, bb):
     bb = bb[:, 1:].cpu().data.numpy()  # [batch,4]
     ih = im_info[0][0]
@@ -254,5 +253,3 @@ def spatial_pyramid_pool(previous_conv, num_sample, previous_conv_size, out_pool
             # print("size:",spp.size())
             spp = torch.cat((spp,x.view(num_sample,-1)), 1)
     return spp
-        
-    
