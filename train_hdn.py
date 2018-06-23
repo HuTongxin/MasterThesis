@@ -213,6 +213,10 @@ def main():
 
 def train(train_loader, target_net, optimizer, epoch):
     global args
+
+    # -----------------------------
+    # initialization of loggers
+    # -----------------------------
     # Overall loss logger
     global overall_train_loss
     global overall_train_rpn_loss
@@ -236,6 +240,9 @@ def train(train_loader, target_net, optimizer, epoch):
     accuracy_s = network.AccuracyMeter()
     accuracy_o = network.AccuracyMeter()
     accuracy_r = network.AccuracyMeter()
+    # -----------------------------
+    # initialization of loggers ends
+    # -----------------------------
 
     target_net.train()
     end = time.time()
@@ -254,6 +261,9 @@ def train(train_loader, target_net, optimizer, epoch):
         else:
             loss = target_net.loss
 
+        # -----------------------------
+        # update logger
+        # -----------------------------
         train_loss.update(target_net.loss.data.cpu().numpy()[0], im_data.size(0))
         train_s_cls_loss.update(target_net.cross_entropy_s.data.cpu().numpy()[0], im_data.size(0))
         train_o_cls_loss.update(target_net.cross_entropy_o.data.cpu().numpy()[0], im_data.size(0))
@@ -268,6 +278,9 @@ def train(train_loader, target_net, optimizer, epoch):
         accuracy_s.update(target_net.tp_s, target_net.tf_s, target_net.fg_cnt_s, target_net.bg_cnt_s)
         accuracy_o.update(target_net.tp_o, target_net.tf_o, target_net.fg_cnt_o, target_net.bg_cnt_o)
         accuracy_r.update(target_net.tp_r, target_net.tf_r, target_net.fg_cnt_r, target_net.bg_cnt_r)
+        # -----------------------------
+        # end
+        # -----------------------------
 
         optimizer.zero_grad()
         loss.backward()
@@ -279,8 +292,11 @@ def train(train_loader, target_net, optimizer, epoch):
         batch_time.update(time.time() - end)
         end = time.time()
 
+        # -----------------------------
+        # print loss
+        # -----------------------------
         # Logging the training loss
-        if  (i + 1) % args.log_interval == 0:
+        if (i + 1) % args.log_interval == 0:
             loss_list.append(train_loss.avg)
             print('\nEpoch: [{0}][{1}/{2}] [lr: {lr}] [Solver: {solver}]\n'
                   '\tBatch_Time: {batch_time.avg: .3f}s\t'
@@ -300,6 +316,9 @@ def train(train_loader, target_net, optimizer, epoch):
                   (accuracy_r.ture_pos*100., accuracy_r.true_neg*100., accuracy_r.foreground, accuracy_r.background))
             print('\t[o]\ttp: %.2f, \tfg=%d' %
                   (accuracy_o.ture_pos * 100., accuracy_o.foreground))
+        # -----------------------------
+        # end
+        # -----------------------------
 
             # logging to tensor board
             log_value('FRCNN loss', overall_train_loss.avg, overall_train_loss.count)

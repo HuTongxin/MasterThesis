@@ -32,6 +32,7 @@ def nms_detections(pred_boxes, scores, nms_thresh, inds=None):
         return pred_boxes[keep], scores[keep], keep
     return pred_boxes[keep], scores[keep], inds[keep], keep
 
+
 class Hierarchical_Descriptive_Model(HDN_base):
     def __init__(self,nhidden, n_object_cats, n_predicate_cats, n_vocab, voc_sign,
                  object_loss_weight, predicate_loss_weight, dropout=False, 
@@ -92,7 +93,6 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
         network.weights_normal_init(self.score, 0.01)
         network.weights_normal_init(self.score_r, 0.01)
-
         network.weights_normal_init(self.boundingbox, 0.005)
         
         self.bad_img_flag = False
@@ -112,17 +112,8 @@ class Hierarchical_Descriptive_Model(HDN_base):
         object_rois = network.np_to_variable(object_rois, is_cuda=True, dtype=torch.LongTensor)
 
         if not self.training and gt_objects is not None:
-
-            # get rid of the gt rois with heights or weights which are smaller than 1
-            check_gt = gt_objects[:, :4]
-            width_gt = (check_gt[:, 2] - check_gt[:, 0])
-            height_gt = (check_gt[:, 3] - check_gt[:, 1])
-            gt_objects_without_error = gt_objects[np.where((width_gt > 1) * (height_gt > 1))]
-
-            zeros = np.zeros((gt_objects_without_error.shape[0], 1), dtype=gt_objects.dtype)
-            object_rois_gt = np.hstack((zeros, gt_objects_without_error[:, :4]))
-            object_rois_gt = network.np_to_variable(object_rois_gt, is_cuda=True)
-            object_rois = object_rois_gt
+            # remove the gt rois with heights or weights which are smaller than 1
+            object_rois = self.remove_bad_roi(gt_objects)
 
         output_proposal_target = \
             self.proposal_target_layer(object_rois, gt_objects, gt_relationships, 
@@ -133,9 +124,6 @@ class Hierarchical_Descriptive_Model(HDN_base):
             return
 
         roi_data_sub, roi_data_obj, roi_data_rel, mat_phrase, rel_target, roi_data_object = output_proposal_target
-        # roi_data_object: object_rois(32*5), object_labels(32*1), bbox_targets(32*(151*4)), 
-        #                  bbox_inside_weights(32*604), bbox_outside_weights(32*604) 
-        # roi_data_predicate: phrase_rois(512*5), phrase_label(512*1)
 
         sub_rois = roi_data_sub[0]
         obj_rois = roi_data_obj[0]  # get object_rois.size(?,5) ?<=256
@@ -151,9 +139,9 @@ class Hierarchical_Descriptive_Model(HDN_base):
         if self.pool_type == 'dual_roipooling':
             pooled_r_features = self.dualmask_roi_pool(features, sub_rois, obj_rois)
 
-        resize_s_features = pooled_s_features.contiguous().view(pooled_s_features.size()[0],-1)  # [batch,25088]
-        resize_o_features = pooled_o_features.contiguous().view(pooled_o_features.size()[0],-1)
-        resize_r_features = pooled_r_features.contiguous().view(pooled_r_features.size()[0],-1)
+        resize_s_features = pooled_s_features.contiguous().view(pooled_s_features.size()[0], -1)  # [batch,25088]
+        resize_o_features = pooled_o_features.contiguous().view(pooled_o_features.size()[0], -1)
+        resize_r_features = pooled_r_features.contiguous().view(pooled_r_features.size()[0], -1)
 
         fc6_s_features = self.fc6(resize_s_features)
         fc6_o_features = self.fc6(resize_o_features)
@@ -220,6 +208,9 @@ class Hierarchical_Descriptive_Model(HDN_base):
         cls_score_o = self.score(o_features)
         cls_prob_o = F.softmax(cls_score_o)  # [32,151]
 
+        # ------------------------
+        # build total loss
+        # ------------------------
         if self.training:
             self.cross_entropy_s, self.loss_s_box, self.tp_s, self.tf_s, self.fg_cnt_s, self.bg_cnt_s = \
                           self.build_loss_object(cls_score_s, bbox_s, roi_data_sub)
@@ -227,27 +218,56 @@ class Hierarchical_Descriptive_Model(HDN_base):
                           self.build_loss_object(cls_score_o, bbox_o, roi_data_obj)
             self.cross_entropy_r, self.tp_r, self.tf_r, self.fg_cnt_r, self.bg_cnt_r = \
                           self.build_loss_cls(cls_score_r, roi_data_rel[1])
+        # ------------------------
+        # end
+        # ------------------------
 
-        # for plotting of training
+        s_result = (cls_prob_s, bbox_s, sub_rois)
+        r_result = (cls_prob_r, mat_phrase)
+        o_result = (cls_prob_o, bbox_o, obj_rois)
+
+        # ------------------------
+        # plot of training
+        # ------------------------
         plot_picture = False
         if plot_picture:
-            print('train checker for image {}----------------------------------------------'.format(self.trainImgCount))
-            img_info = (im_data, im_info, self.idx2obj, self.idx2rel)
+            img_info_tuple = (im_data, im_info, self.idx2obj, self.idx2rel)
             rpn_output = (proposals, after_nms_scores)
-            net_output = ((cls_prob_s, bbox_s, sub_rois), (cls_prob_r, mat_phrase), (cls_prob_o, bbox_o, obj_rois))
-            proposal_target = (roi_data_sub, roi_data_obj, roi_data_rel)
+            net_output = (s_result, r_result, o_result)
             ground_truth = (gt_objects, gt_relationships)
-            im2show_original, im2show_rpn_output, im2show_output, im2show_proposal, im2show_real = \
-                self.train_checker(img_info, rpn_output, net_output, proposal_target, ground_truth)
-            if self.trainImgCount < 40:
-                cv2.imwrite('demoImg/train/img_{}_original.jpg'.format(self.trainImgCount), im2show_original)
-                cv2.imwrite('demoImg/train/img_{}_rpn_output.jpg'.format(self.trainImgCount), im2show_rpn_output)
-                cv2.imwrite('demoImg/train/img_{}_output.jpg'.format(self.trainImgCount), im2show_output)
-                cv2.imwrite('demoImg/train/img_{}_proposal.jpg'.format(self.trainImgCount), im2show_proposal)
-                cv2.imwrite('demoImg/train/img_{}_real.jpg'.format(self.trainImgCount), im2show_real)
-                self.trainImgCount = self.trainImgCount + 1
+            proposal_target = (roi_data_sub, roi_data_obj, roi_data_rel)
+            self.plot_train(img_info_tuple, rpn_output, net_output, proposal_target, ground_truth)
+        # ------------------------
+        # end
+        # ------------------------
 
-        return (cls_prob_s, bbox_s, sub_rois), (cls_prob_r, mat_phrase), (cls_prob_o, bbox_o, obj_rois)
+        return s_result, r_result, o_result
+
+    @staticmethod
+    def remove_bad_roi(gt_objects):
+        """remove the gt rois with heights or weights which are smaller than 1"""
+        check_gt = gt_objects[:, :4]
+        width_gt = (check_gt[:, 2] - check_gt[:, 0])
+        height_gt = (check_gt[:, 3] - check_gt[:, 1])
+        gt_objects_without_error = gt_objects[np.where((width_gt > 1) * (height_gt > 1))]
+
+        zeros = np.zeros((gt_objects_without_error.shape[0], 1), dtype=gt_objects.dtype)
+        object_rois_gt = np.hstack((zeros, gt_objects_without_error[:, :4]))
+        object_rois_gt = network.np_to_variable(object_rois_gt, is_cuda=True)
+        object_rois = object_rois_gt
+        return object_rois
+
+    def plot_train(self, img_info, rpn_output, net_output, proposal_target, ground_truth):
+        print('train checker for image {}----------------------------------------------'.format(self.trainImgCount))
+        im2show_original, im2show_rpn_output, im2show_output, im2show_proposal, im2show_real = \
+            self.train_checker(img_info, rpn_output, net_output, proposal_target, ground_truth)
+        if self.trainImgCount < 40:
+            cv2.imwrite('demoImg/train/img_{}_original.jpg'.format(self.trainImgCount), im2show_original)
+            cv2.imwrite('demoImg/train/img_{}_rpn_output.jpg'.format(self.trainImgCount), im2show_rpn_output)
+            cv2.imwrite('demoImg/train/img_{}_output.jpg'.format(self.trainImgCount), im2show_output)
+            cv2.imwrite('demoImg/train/img_{}_proposal.jpg'.format(self.trainImgCount), im2show_proposal)
+            cv2.imwrite('demoImg/train/img_{}_real.jpg'.format(self.trainImgCount), im2show_real)
+            self.trainImgCount = self.trainImgCount + 1
 
     @staticmethod
     def proposal_target_layer(object_rois, gt_objects, gt_relationships, 
@@ -556,8 +576,6 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
         im2show_output = im2show.copy()
 
-
-
         # draw the proposal target
         def make_mat(cls_vector, size):
             cls_mat = Variable(torch.zeros(size)).cuda()
@@ -612,7 +630,6 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
         # draw the ground truth of objects
         im2show = im2show_original.copy()
-        # print('train checker gt_objects: {}'.format(gt_objects))
         if not gt_objects is None:
             for gt_object in gt_objects:
                 cv2.rectangle(im2show, tuple(gt_object[0:2]),
