@@ -57,21 +57,9 @@ class Hierarchical_Descriptive_Model(HDN_base):
         self.fc7 = FC(nhidden, nhidden, relu=True)
         self.fc6_r = FC(512 * 7 * 7, nhidden, relu=True)   
         self.fc7_r = FC(nhidden, nhidden, relu=True)
-
-        # self.conv6 = Resnet(nhidden, nhidden, kernel_size=3)
-        # self.conv6_r = Resnet(nhidden, nhidden, kernel_size=3)
-        # self.lstm = nn.LSTM(nhidden, nhidden, 2)        
-        # self.score_triplet = FC(nhidden, 1, relu=False)
         
         if not self.disable_spatial_model:
             if spatial_type == 'dual_mask':
-                # self.conv6 = Conv2d(2, 96, kernel_size=5)
-                # self.conv7 = Conv2d(96, 128, kernel_size=5)
-                # self.conv8 = Conv2d(128, 64, kernel_size=8)
-                # self.fc9_dm = FC(18496, nhidden, relu=True)
-                # self.fc10_dm = FC(25600, 2 * nhidden, relu=True)
-                # network.weights_normal_init(self.fc9_dm, 0.01)
-                # network.weights_normal_init(self.fc10_dm, 0.01)
                 self.dm = DualMask(nhidden)
             if self.spatial_type == 'gaussian_model':
                 self.gmm = GaussianMixtureModel(25488, nhidden)
@@ -79,10 +67,6 @@ class Hierarchical_Descriptive_Model(HDN_base):
             network.weights_normal_init(self.fc10_r, 0.01)
         else:
             self.gsf = GeometricSpatialFeature(nhidden, dropout)
-
-        # recurrent_attention = False
-        # if recurrent_attention:
-        #     self.ratt = RecurrentAttention(nhidden)
 
         TransEmbedding = False
         if TransEmbedding:
@@ -103,13 +87,11 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
         self.score = FC(nhidden, self.n_classes_obj, relu=False)
         self.score_r = FC(nhidden, self.n_classes_pred, relu=False)
-        # self.r_bicls = FC(nhidden, 1, relu=False)
 
         self.boundingbox = FC(nhidden, self.n_classes_obj * 4, relu=False)
 
         network.weights_normal_init(self.score, 0.01)
         network.weights_normal_init(self.score_r, 0.01)
-        # network.weights_normal_init(self.r_bicls, 0.01)
 
         network.weights_normal_init(self.boundingbox, 0.005)
         
@@ -119,7 +101,6 @@ class Hierarchical_Descriptive_Model(HDN_base):
         self.idx2obj = idx2obj
         self.idx2rel = idx2rel
         self.trainImgCount = 0
-
 
     def forward(self, im_data, im_info, gt_objects=None, gt_relationships=None):
 
@@ -136,20 +117,12 @@ class Hierarchical_Descriptive_Model(HDN_base):
             check_gt = gt_objects[:, :4]
             width_gt = (check_gt[:, 2] - check_gt[:, 0])
             height_gt = (check_gt[:, 3] - check_gt[:, 1])
-            if ((width_gt < 1) + (height_gt < 1)).sum():
-                # print('gt roi {}'.format(check_gt))
-                pass
             gt_objects_without_error = gt_objects[np.where((width_gt > 1) * (height_gt > 1))]
 
             zeros = np.zeros((gt_objects_without_error.shape[0], 1), dtype=gt_objects.dtype)
             object_rois_gt = np.hstack((zeros, gt_objects_without_error[:, :4]))
             object_rois_gt = network.np_to_variable(object_rois_gt, is_cuda=True)
             object_rois = object_rois_gt
-            # if object_rois.size()[0] >= object_rois_gt.size(0):
-            #     object_rois[:object_rois_gt.size(0)] = object_rois_gt
-            # else:
-            #     object_rois_gt = object_rois_gt[:object_rois.size()[0]]
-            #     object_rois = object_rois_gt
 
         output_proposal_target = \
             self.proposal_target_layer(object_rois, gt_objects, gt_relationships, 
@@ -182,11 +155,6 @@ class Hierarchical_Descriptive_Model(HDN_base):
         resize_o_features = pooled_o_features.contiguous().view(pooled_o_features.size()[0],-1)
         resize_r_features = pooled_r_features.contiguous().view(pooled_r_features.size()[0],-1)
 
-        # use_attention = False
-        # if use_attention:
-        #     resize_s_features, resize_r_features, resize_o_features = \
-        #         attention(resize_s_features, resize_r_features, resize_o_features)
-
         fc6_s_features = self.fc6(resize_s_features)
         fc6_o_features = self.fc6(resize_o_features)
         if self.dropout:
@@ -205,25 +173,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
         if not self.disable_spatial_model:
 
-            if self.spatial_type == 'dual_mask':                
-                # mask1 = get_dual_mask(im_info, sub_rois)  # [batch,32,32]
-                # mask2 = get_dual_mask(im_info, obj_rois)
-                # mask_pairs = np.zeros((mask1.shape[0], 2, mask1.shape[1], mask1.shape[2]))
-                # mask_pairs[:, 0, :, :] = mask1
-                # mask_pairs[:, 1, :, :] = mask2
-                # mask_pairs = network.np_to_variable(mask_pairs, is_cuda=True)  # [batch,2,32,32]
-                #
-                # mask_pairs = self.conv6(mask_pairs)  # [batch,96,28,28]
-                # mask_pairs = self.conv7(mask_pairs)  # [batch,128,24,24]
-                # mask_pairs = self.conv8(mask_pairs)  # [batch,64,17,17]
-                #
-                # spatial_feature = mask_pairs.contiguous().view(mask_pairs.size()[0], -1)  # [batch,18496]
-                # spatial_feature = self.fc9_dm(spatial_feature)  # [batch, 512]
-                # cat_feature = torch.cat((resize_r_features, spatial_feature), 1)  # [batch,25600]
-                #
-                # cat_feature = self.fc10_dm(cat_feature)  # [batch, 1024]
-                # if self.dropout:
-                #     cat_feature = F.dropout(cat_feature, training=self.training)
+            if self.spatial_type == 'dual_mask':
                 cat_feature = self.dm(im_info, sub_rois, obj_rois, resize_r_features, self.dropout, self.training)
 
             if self.spatial_type == 'gaussian_model':
@@ -242,10 +192,6 @@ class Hierarchical_Descriptive_Model(HDN_base):
                 r_features = F.dropout(r_features, training=self.training)
 
             fc7_s_features, fc7_o_features, r_features = self.gsf(sub_rois, obj_rois, fc7_s_features, fc7_o_features, r_features)
-
-        # recurrent_attention = False
-        # if recurrent_attention:
-        #     s_features, r_features, o_features = self.ratt(fc7_s_features, r_features, fc7_o_features)
 
         TransEmbedding = False
         if TransEmbedding:
@@ -271,36 +217,16 @@ class Hierarchical_Descriptive_Model(HDN_base):
         cls_prob_s = F.softmax(cls_score_s)  # [32,151]
         cls_score_r = self.score_r(r_features)
         cls_prob_r = F.softmax(cls_score_r)  # [32,51]
-        # bicls_score_r = self.r_bicls(r_features)  # [batch, 1]
-        # bicls_prob_r = F.sigmoid(bicls_score_r)
         cls_score_o = self.score(o_features)
         cls_prob_o = F.softmax(cls_score_o)  # [32,151]
 
-
-        # # add an additional block for object classification
-        # object_rois = roi_data_object[0]
-        # pooled_object_features = self.roi_pool(features, object_rois)
-        # resize_object_features = pooled_object_features.contiguous().view(pooled_object_features.size()[0], -1)
-        # fc6_object_features = self.fc6(resize_object_features)
-        # fc7_object_features = self.fc7(fc6_object_features)
-        # bbox_object = self.boundingbox(F.relu(fc7_object_features))
-        #
-        # cls_score_object = self.score(fc7_object_features)
-        # cls_prob_object = F.softmax(cls_score_object)
-
-
         if self.training:
-            # self.cross_entropy_object, self.loss_obj_box = \
-            #               self.build_loss(cls_score_object, bbox_object, roi_data_object)
             self.cross_entropy_s, self.loss_s_box, self.tp_s, self.tf_s, self.fg_cnt_s, self.bg_cnt_s = \
                           self.build_loss_object(cls_score_s, bbox_s, roi_data_sub)
             self.cross_entropy_o, self.loss_o_box, self.tp_o, self.tf_o, self.fg_cnt_o, self.bg_cnt_o = \
                           self.build_loss_object(cls_score_o, bbox_o, roi_data_obj)
             self.cross_entropy_r, self.tp_r, self.tf_r, self.fg_cnt_r, self.bg_cnt_r = \
                           self.build_loss_cls(cls_score_r, roi_data_rel[1])
-            # self.bicls_loss, self.tp_bicls, self.tf_bicls, self.fg_bicls, self.bg_bicls = \
-                          # self.build_loss_bicls(bicls_prob_r, rel_target)
-            # print 'accuracy: %2.2f%%' % (((self.tp_r + self.tf_r) / float(self.fg_cnt_r + self.bg_cnt_r)) * 100)
 
         # for plotting of training
         plot_picture = False
@@ -322,8 +248,6 @@ class Hierarchical_Descriptive_Model(HDN_base):
                 self.trainImgCount = self.trainImgCount + 1
 
         return (cls_prob_s, bbox_s, sub_rois), (cls_prob_r, mat_phrase), (cls_prob_o, bbox_o, obj_rois)
-        # return (cls_prob_s, bbox_s, sub_rois), (cls_prob_r, mat_phrase), (cls_prob_o, bbox_o, obj_rois), bicls_prob_r
-    
 
     @staticmethod
     def proposal_target_layer(object_rois, gt_objects, gt_relationships, 
@@ -448,15 +372,6 @@ class Hierarchical_Descriptive_Model(HDN_base):
         if clip:
             pred_boxes_o = clip_boxes(pred_boxes_o, im_info[0][:2])  # / im_info[0][2])
         
-        # # nms
-        # if nms and pred_boxes_s.shape[0] > 0:
-        #     pred_boxes_s, scores_s, inds_s, keep_keep_s = nms_detections(pred_boxes_s, scores_s, 0.60, inds=inds_s)
-        #     keep_s = keep_s[keep_keep_s]
-        # # nms
-        # if nms and pred_boxes_o.shape[0] > 0:
-        #     pred_boxes_o, scores_o, inds_o, keep_keep_o = nms_detections(pred_boxes_o, scores_o, 0.60, inds=inds_o)
-        #     keep_o = keep_o[keep_keep_o]
-        
         all_scores = scores_r.squeeze() * scores_s.squeeze() * scores_o.squeeze()
         _top_N_list = all_scores.argsort()[::-1][:top_N]
         
@@ -543,11 +458,6 @@ class Hierarchical_Descriptive_Model(HDN_base):
         cls_prob_o, bbox_o, o_rois = o_result
         cls_prob_r, mat_phrase = r_result  # cls_prob_r[batch,51]
 
-        # interpret the model output
-        # inds_r, inds_s, inds_o, boxes_s, boxes_o = \
-        #         self.interpret_HDN(cls_prob_s, bbox_s, s_rois, cls_prob_o, bbox_o, o_rois, cls_prob_r, mat_phrase,
-        #                     im_info, nms=nms, top_N=max(top_Ns), use_gt_boxes=use_gt_boxes)
-        # TODO: I need to add nms function in self.interpret
         cls_r, inds_s, inds_o, boxes_s, boxes_o = \
                 self.interpret(cls_prob_s, bbox_s, s_rois, cls_prob_o, bbox_o, o_rois, cls_prob_r,
                   im_info, top_N=top_Ns, use_gt_boxes=use_gt_boxes)
@@ -556,12 +466,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
                                         cls_r, inds_s, inds_o, boxes_s, boxes_o,
                                         top_Ns, use_gt_boxes=use_gt_boxes, thres=thr, union_overlap=union_overlap)
 
-        # Given gt_boxes, calculate precision and recall of 'have relationship or not'
-        # precision_correct, precision_total, recall_correct, recall_total = relationship_checker(gt_objects, gt_relationships,
-        #                          bicls_result.data.cpu().numpy(), s_rois.data.cpu().numpy(), o_rois.data.cpu().numpy())
-
         return rel_cnt, rel_correct_cnt
-        # return rel_cnt, rel_correct_cnt, precision_correct, precision_total, recall_correct, recall_total
 
     def train_checker(self, img_info, rpn_output, net_output, proposal_target, ground_truth, N=10):
         """plot outputs, its targets and the dataset ground truth of training
@@ -587,13 +492,11 @@ class Hierarchical_Descriptive_Model(HDN_base):
             im = im.astype(np.uint8)
             return im
 
-
         im_data, im_info, idx2obj, idx2rel = img_info
         proposals, after_nms_scores = rpn_output
         s_result, r_result, o_result = net_output
         roi_data_sub, roi_data_obj, roi_data_rel = proposal_target
         gt_objects, gt_relationships = ground_truth
-
 
         # draw the original image
         im_data = im_data[0].numpy()
@@ -602,8 +505,6 @@ class Hierarchical_Descriptive_Model(HDN_base):
         # draw the after nms rpn output
         im2show = im2show_original.copy()
 
-        # proposals = proposals.cpu().data.numpy()
-        # after_nms_scores = after_nms_scores.cpu().data.numpy()
         rpn_output = np.concatenate((proposals, after_nms_scores.reshape(after_nms_scores.shape[0], 1)), 1)
         for i in rpn_output:
             cv2.rectangle(im2show, (int(i[0]), int(i[1])),
@@ -625,7 +526,6 @@ class Hierarchical_Descriptive_Model(HDN_base):
         inds_r, inds_s, inds_o, boxes_s, boxes_o = \
             self.interpret_HDN(cls_prob_s, bbox_s, s_rois, cls_prob_o,
                                bbox_o, o_rois, cls_prob_r, mat_phrase, im_info)
-        # print('train checker out_r: {}'.format(inds_r))
 
         output_s = np.concatenate((boxes_s, inds_s.reshape(inds_s.shape[0], 1)), 1)
         output_o = np.concatenate((boxes_o, inds_o.reshape(inds_o.shape[0], 1)), 1)
@@ -742,10 +642,6 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
         return im2show_original, im2show_rpn_output, im2show_output, im2show_proposal, im2show_real
 
-
-
-
-
     def detect(self, im_data, im_info, idx2obj, idx2rel, gt_objects, gt_relationships, N=5):
         """Detect the objects and their relationships 
         in a given image and save the result. 
@@ -820,8 +716,6 @@ class Hierarchical_Descriptive_Model(HDN_base):
                         1, (138, 43, 226), thickness=1)
 
         im2show_output = im2show.copy()
-            
-        # print 'number of relations: {}'.format(len(inds_r))
 
         # draw the ground truth of objects
         im2show = im2show_original.copy()
@@ -852,11 +746,3 @@ class Hierarchical_Descriptive_Model(HDN_base):
         im2show_real = im2show.copy()
             
         return im2show_original, im2show_output, im2show_real
-                
-        
-        
-        
-                
-        
-
-

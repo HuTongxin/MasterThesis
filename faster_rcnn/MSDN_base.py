@@ -90,20 +90,14 @@ class HDN_base(nn.Module):
         self.fc7.fc.bias.data.copy_(vgg16.classifier[3].bias.data[:self.nhidden])
         self.fc7_r.fc.weight.data.copy_(vgg16.classifier[3].weight.data[:self.nhidden, :self.nhidden] * weight_multiplier)
         self.fc7_r.fc.bias.data.copy_(vgg16.classifier[3].bias.data[:self.nhidden])
-        # network.weights_normal_init(self.caption_prediction, 0.01)
-        # network.weights_normal_init(self.caption_prediction, 0.01)
         print 'Done.'
 
 
     @property
     def loss(self):
         return 0.5 * self.cross_entropy_s + 0.2 * self.loss_s_box + \
-               0.5 * self.cross_entropy_o + 0.2 * self.loss_o_box + self.cross_entropy_r  # + self.cross_entropy_object
+               0.5 * self.cross_entropy_o + 0.2 * self.loss_o_box + self.cross_entropy_r
 
-        # return self.cross_entropy_s + self.loss_s_box + \
-        #               self.cross_entropy_o + self.loss_o_box + self.bicls_loss * 20
-
-    
     def build_loss_object(self, cls_score, bbox_pred, roi_data):
         # classification loss
         label = roi_data[1].squeeze()  # [torch.FloatTensor of size 32]
@@ -124,36 +118,18 @@ class HDN_base(nn.Module):
         else:
             tf = 0.
 
-        # print '[object]:'
-        # if predict.sum() > 0:
-        # print predict
-
-        # print 'accuracy: %2.2f%%' % (((self.tp + self.tf) / float(fg_cnt + bg_cnt)) * 100)
-        # print predict
         cross_entropy = F.cross_entropy(cls_score, label, weight=ce_weights)
-        # print cross_entropy
 
         # bounding box regression L1 loss
         bbox_targets, bbox_inside_weights, bbox_outside_weights = roi_data[2:]
 
-        # b = bbox_targets.data.cpu().numpy()
-
         bbox_targets = torch.mul(bbox_targets, bbox_inside_weights)
         bbox_pred = torch.mul(bbox_pred, bbox_inside_weights)
 
-        # a = bbox_pred.data.cpu().numpy()
-#        print '--------------build_loss--------------'
-#        print '--------------bbox_pred---------------'
-#        print bbox_pred.data.cpu().numpy()
-#
-#        print '--------------bbox_target-------------'
-#        print bbox_targets.data.cpu().numpy()
-#        print '--------------------------------------'
         loss_box = F.smooth_l1_loss(bbox_pred, bbox_targets, size_average=False) / (fg_cnt + 1e-5)
         # print loss_box
 
         return cross_entropy, loss_box, tp, tf, fg_cnt, bg_cnt
-
 
     def build_loss(self, cls_score, bbox_pred, roi_data):
         # classification loss
@@ -177,29 +153,17 @@ class HDN_base(nn.Module):
         self.fg_cnt = fg_cnt
         self.bg_cnt = bg_cnt
 
-        # print '[object]:'
-        # if predict.sum() > 0:
-        # print predict
-
-        # print 'accuracy: %2.2f%%' % (((self.tp + self.tf) / float(fg_cnt + bg_cnt)) * 100)
-        # print predict
         cross_entropy = F.cross_entropy(cls_score, label, weight=ce_weights)
-        # print cross_entropy
 
         # bounding box regression L1 loss
         bbox_targets, bbox_inside_weights, bbox_outside_weights = roi_data[2:]
 
-        # b = bbox_targets.data.cpu().numpy()
-
         bbox_targets = torch.mul(bbox_targets, bbox_inside_weights)
         bbox_pred = torch.mul(bbox_pred, bbox_inside_weights)
 
-        # a = bbox_pred.data.cpu().numpy()
         loss_box = F.smooth_l1_loss(bbox_pred, bbox_targets, size_average=False) / (fg_cnt + 1e-5)
-        # print loss_box
 
         return cross_entropy, loss_box
-
 
     def build_loss_bbox(self, bbox_pred, roi_data):
         bbox_targets, bbox_inside_weights, bbox_outside_weights = roi_data[2:]
@@ -209,10 +173,8 @@ class HDN_base(nn.Module):
         loss_box = F.smooth_l1_loss(bbox_pred, bbox_targets, size_average=False) / (fg_cnt + 1e-5)
         return loss_box
 
-
     def build_loss_cls(self, cls_score, labels):
         """
-        
         Res:
             cross_entropy
             tp: true positive
@@ -220,8 +182,6 @@ class HDN_base(nn.Module):
             fg_cnt: number of foreground
             bg_cnt: number of background
         """
-        
-        
         labels = labels.squeeze()
         fg_cnt = torch.sum(labels.data.ne(0))
         bg_cnt = labels.data.numel() - fg_cnt
@@ -229,27 +189,10 @@ class HDN_base(nn.Module):
         ce_weights = np.sqrt(self.predicate_loss_weight)
         ce_weights[0] = float(fg_cnt) / (bg_cnt + 1e-5)
         ce_weights = ce_weights.cuda()
-        # print '[relationship]:'
-        # print 'ce_weights:'
-        # print ce_weights
-        # print 'cls_score:'
-        # print cls_score 
-        # print 'labels'
-        # print labels
         ce_weights = ce_weights.cuda()
         cross_entropy = F.cross_entropy(cls_score, labels, weight=ce_weights)
 
         maxv, predict = cls_score.data.max(1)
-        # if DEBUG:
-        # print '[predicate]:'
-        # if predict.sum() > 0:
-        # print predict
-        # print 'labels'
-        # print labels
-
-        # print('build_loss_cls predict: {}'.format(predict.cpu().numpy()))
-        # print('build_loss_cls labels: {}'.format(labels.data.cpu().numpy()))
-        # print('build_loss_cls bg_cnt: {}'.format(bg_cnt))
 
         if fg_cnt == 0:
             tp = 0
@@ -263,7 +206,6 @@ class HDN_base(nn.Module):
         bg_cnt = bg_cnt
 
         return cross_entropy, tp, tf, fg_cnt, bg_cnt
-
 
     def build_hinge_loss(self, cls_score, labels):
         """
@@ -297,7 +239,6 @@ class HDN_base(nn.Module):
 
         return hinge_loss, tp, tf, fg_cnt, bg_cnt
 
-
     def build_loss_bicls(self, bicls_score, rel_target):
         rel_target = rel_target.squeeze()
         bicls_score = bicls_score.squeeze()
@@ -319,7 +260,6 @@ class HDN_base(nn.Module):
         bg_bicls = bg_bicls
 
         return bicls_loss, tp_bicls, tf_bicls, fg_bicls, bg_bicls
-
 
     def get_image_blob_noscale(self, im):
         im_orig = im.astype(np.float32, copy=True)
@@ -379,7 +319,6 @@ class HDN_base(nn.Module):
 
         return blob, np.array(im_scale_factors)
 
-
     def get_gt_objects(self, imdb):
         gt_boxes_object = np.empty((len(imdb['objects']), 5), dtype=np.float32)
         gt_boxes_object[:, 0:4] = np.array([obj['box'] for obj in imdb['objects']])
@@ -390,7 +329,6 @@ class HDN_base(nn.Module):
         gt_boxes_region= np.empty((len(imdb['regions']), 4), dtype=np.float32)
         gt_boxes_region = np.array([reg['box'] for reg in imdb['regions']])
         return gt_boxes_region
-    
 
     def load_from_npz(self, params):
         self.rpn.load_from_npz(params)
@@ -406,18 +344,12 @@ class HDN_base(nn.Module):
             param = torch.from_numpy(params['{}/biases:0'.format(v)])
             own_dict[key].copy_(param)
 
-
-
-
     def object_detection(self, image_path, gt_boxes=None):
         min_score = 1/150.
         image = cv2.imread(image_path)
-        # print 'image.shape', image.shape
         im_data, im_scales = self.get_image_blob_noscale(image)
         if gt_boxes is not None:
             gt_boxes[:, :4] = gt_boxes[:, :4] * im_scales[0]
-        # print 'im_data.shape', im_data.shape
-        # print 'im_scales', im_scales
         im_info = np.array(
             [[im_data.shape[1], im_data.shape[2], im_scales[0]]],
             dtype=np.float32)
@@ -439,23 +371,17 @@ class HDN_base(nn.Module):
         regressed_boxes = bbox_transform_inv_hdn(boxes[box_id], new_box_delta)
         regressed_boxes = clip_boxes(regressed_boxes, image.shape)
 
-
         object_score = np.asarray([
             prob[box_id[i], cls_id[i]] for i in range(len(cls_id))
         ], dtype=np.float)
 
-        # print 'im_scales[0]', im_scales[0]
-        return (cls_id, object_score, regressed_boxes)
-
+        return cls_id, object_score, regressed_boxes
 
     def object_detection_gt_boxes(self, image_path, gt_boxes):
         min_score = 1/150.
         image = cv2.imread(image_path)
-        # print 'image.shape', image.shape
         im_data, im_scales = self.get_image_blob_noscale(image)
         gt_boxes[:, :4] = gt_boxes[:, :4] * im_scales[0]
-        # print 'im_data.shape', im_data.shape
-        # print 'im_scales', im_scales
         im_info = np.array(
             [[im_data.shape[1], im_data.shape[2], im_scales[0]]],
             dtype=np.float32)
@@ -465,5 +391,4 @@ class HDN_base(nn.Module):
         prob_object = F.softmax(cls_prob_object)
         prob = prob_object.cpu().data
         top_5_cls = torch.topk(prob[:, 1:], 5, dim=1)
-        # print 'im_scales[0]', im_scales[0]
         return top_5_cls[1].numpy()
