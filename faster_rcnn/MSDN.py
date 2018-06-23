@@ -1,37 +1,24 @@
 import cv2
 import numpy as np
-import numpy.random as npr
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
-import torch.utils.model_zoo as model_zoo
-import torchvision.models as models
-import os.path as osp
-from torchvision.utils import save_image
 
-from utils.timer import Timer
-from utils.HDN_utils import check_relationship_recall, relationship_checker
+from utils.HDN_utils import check_relationship_recall
 from fast_rcnn.nms_wrapper import nms
-from rpn_msr.proposal_layer import proposal_layer as proposal_layer_py
-from rpn_msr.anchor_target_layer import anchor_target_layer as anchor_target_layer_py
 from rpn_msr.proposal_target_layer_hdn import proposal_target_layer as proposal_target_layer_py
 from rpn_msr.proposal_target_layer import proposal_target_layer as proposal_target_layer_object
 from fast_rcnn.bbox_transform import bbox_transform_inv_hdn, clip_boxes
 from RPN import RPN
 from fast_rcnn.config import cfg
-from utils.cython_bbox import bbox_overlaps
-from Spatial_model import GaussianMixtureModel, DualMask, GeometricSpatialFeature, get_dual_mask
-from Attention_Block import attention, RecurrentAttention
-from Iterative_Structure import BrnnStructure, LstmStructure, ConcatEmbedding, Concat, IterativeStructure, TranslationEmbedding, GraphicalModel
+from faster_rcnn.additional_model.Spatial_model import GaussianMixtureModel, DualMask, GeometricSpatialFeature
+from faster_rcnn.additional_model.Iterative_Structure import BrnnStructure, Concat, TranslationEmbedding, GraphicalModel
 
 import network
-from network import Conv2d, FC, Resnet, DownSample
+from network import FC
 # from roi_pooling.modules.roi_pool_py import RoIPool
 from roi_pooling.modules.roi_pool import RoIPool, MaskRoIPool, DualMaskRoIPool
-from vgg16 import VGG16
 from MSDN_base import HDN_base
-import pdb
 
 DEBUG = False
 TIME_IT = cfg.TIME_IT

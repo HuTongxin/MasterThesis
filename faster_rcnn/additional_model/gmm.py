@@ -55,7 +55,3 @@ def apply_gmm(filtered_pairs, model_dir, model_name):
     spatial_features = gmm_model.predict_proba(r_filtered_pairs)
     os.chdir(original_path)
     return spatial_features
-    
-#if __name__ == '__main__':
-#	vector = apply_gmm(pairs, model_dir, model_name)
-    

@@ -5,8 +5,9 @@ import torch.nn.functional as F
 from torch.nn.modules.module import Module
 from torch.autograd import Variable
 
-import network
-from network import FC
+import faster_rcnn.network
+from faster_rcnn.network import FC
+
 
 class RecurrentAttention(Module):
     '''
