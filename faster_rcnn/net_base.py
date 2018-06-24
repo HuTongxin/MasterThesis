@@ -12,7 +12,7 @@ import os.path as osp
 from utils.timer import Timer
 from utils.blob import im_list_to_blob
 from fast_rcnn.nms_wrapper import nms
-from fast_rcnn.bbox_transform import bbox_transform_inv_hdn, clip_boxes
+from fast_rcnn.bbox_transform import bbox_transform_inv_net, clip_boxes
 from fast_rcnn.config import cfg
 from utils.cython_bbox import bbox_overlaps
 
@@ -36,7 +36,7 @@ def nms_detections(pred_boxes, scores, nms_thresh, inds=None):
         return pred_boxes[keep], scores[keep], keep
     return pred_boxes[keep], scores[keep], inds[keep], keep
 
-class HDN_base(nn.Module):
+class Net_base(nn.Module):
     
     PIXEL_MEANS = np.array([[[102.9801, 115.9465, 122.7717]]])
     SCALES = (600,)
@@ -49,7 +49,7 @@ class HDN_base(nn.Module):
                  use_kmeans_anchors,
                  disable_spatial_model, spatial_type, pool_type, disable_iteration_model, iteration_type):
 
-        super(HDN_base, self).__init__()
+        super(Net_base, self).__init__()
         assert n_object_cats is not None and n_predicate_cats is not None
 
         self.n_classes_obj = n_object_cats
@@ -368,7 +368,7 @@ class HDN_base(nn.Module):
         new_box_delta = np.asarray([
             box_deltas[box_id[i], (cls_id[i] * 4): (cls_id[i] * 4 + 4)] for i in range(len(cls_id))
         ], dtype=np.float)
-        regressed_boxes = bbox_transform_inv_hdn(boxes[box_id], new_box_delta)
+        regressed_boxes = bbox_transform_inv_net(boxes[box_id], new_box_delta)
         regressed_boxes = clip_boxes(regressed_boxes, image.shape)
 
         object_score = np.asarray([

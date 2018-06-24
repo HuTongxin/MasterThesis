@@ -69,10 +69,10 @@ def bbox_transform(ex_rois, gt_rois):
 
 
 def bbox_transform_inv(boxes, deltas):
-    return bbox_transform_inv_hdn(boxes, deltas)
+    return bbox_transform_inv_net(boxes, deltas)
 
 
-def bbox_transform_inv_hdn(boxes, deltas):
+def bbox_transform_inv_net(boxes, deltas):
     if boxes.shape[0] == 0:
         return np.zeros((0,), dtype=deltas.dtype)
 
