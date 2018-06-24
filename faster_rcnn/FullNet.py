@@ -4,11 +4,11 @@ import torch
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from utils.HDN_utils import check_relationship_recall
+from utils.net_utils import check_relationship_recall
 from fast_rcnn.nms_wrapper import nms
-from rpn_msr.proposal_target_layer_hdn import proposal_target_layer as proposal_target_layer_py
+from rpn_msr.proposal_target_layer_net import proposal_target_layer as proposal_target_layer_py
 from rpn_msr.proposal_target_layer import proposal_target_layer as proposal_target_layer_object
-from fast_rcnn.bbox_transform import bbox_transform_inv_hdn, clip_boxes
+from fast_rcnn.bbox_transform import bbox_transform_inv_net, clip_boxes
 from RPN import RPN
 from fast_rcnn.config import cfg
 from faster_rcnn.additional_model.Spatial_model import GaussianMixtureModel, DualMask, GeometricSpatialFeature
@@ -18,7 +18,7 @@ import network
 from network import FC
 # from roi_pooling.modules.roi_pool_py import RoIPool
 from roi_pooling.modules.roi_pool import RoIPool, MaskRoIPool, DualMaskRoIPool
-from MSDN_base import HDN_base
+from net_base import Net_base
 
 DEBUG = False
 TIME_IT = cfg.TIME_IT
@@ -33,7 +33,7 @@ def nms_detections(pred_boxes, scores, nms_thresh, inds=None):
     return pred_boxes[keep], scores[keep], inds[keep], keep
 
 
-class Hierarchical_Descriptive_Model(HDN_base):
+class Full_Net(Net_base):
     def __init__(self,nhidden, n_object_cats, n_predicate_cats, n_vocab, voc_sign,
                  object_loss_weight, predicate_loss_weight, dropout=False, 
                  use_kmeans_anchors=False, use_kernel=False,
@@ -42,9 +42,9 @@ class Hierarchical_Descriptive_Model(HDN_base):
                  disable_iteration_model=False, iteration_type='cat_embed',
                  idx2obj=None, idx2rel=None):
     
-        super(Hierarchical_Descriptive_Model, self).__init__(nhidden, n_object_cats, n_predicate_cats, n_vocab, voc_sign, 
-                                object_loss_weight, predicate_loss_weight, dropout, use_kmeans_anchors,
-                                disable_spatial_model, spatial_type, pool_type, disable_iteration_model, iteration_type)
+        super(Full_Net, self).__init__(nhidden, n_object_cats, n_predicate_cats, n_vocab, voc_sign,
+                                       object_loss_weight, predicate_loss_weight, dropout, use_kmeans_anchors,
+                                       disable_spatial_model, spatial_type, pool_type, disable_iteration_model, iteration_type)
 
         self.rpn = RPN(use_kmeans_anchors)
         self.roi_pool = RoIPool(7, 7, 1.0/16)
@@ -371,7 +371,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
             clip = False
             pred_boxes_s = boxes_s
         else:
-            pred_boxes_s = bbox_transform_inv_hdn(boxes_s, box_deltas_s)
+            pred_boxes_s = bbox_transform_inv_net(boxes_s, box_deltas_s)
 
         if clip:
             pred_boxes_s = clip_boxes(pred_boxes_s, im_info[0][:2]) # / im_info[0][2])
@@ -387,7 +387,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
             clip = False
             pred_boxes_o = boxes_o
         else:
-            pred_boxes_o = bbox_transform_inv_hdn(boxes_o, box_deltas_o)
+            pred_boxes_o = bbox_transform_inv_net(boxes_o, box_deltas_o)
 
         if clip:
             pred_boxes_o = clip_boxes(pred_boxes_o, im_info[0][:2])  # / im_info[0][2])
@@ -429,7 +429,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
             clip = False
             pred_boxes_s = boxes_s
         else:
-            pred_boxes_s = bbox_transform_inv_hdn(boxes_s, box_deltas_s)
+            pred_boxes_s = bbox_transform_inv_net(boxes_s, box_deltas_s)
 
         if clip:
             pred_boxes_s = clip_boxes(pred_boxes_s, im_info[0][:2])
@@ -445,7 +445,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
             clip = False
             pred_boxes_o = boxes_o
         else:
-            pred_boxes_o = bbox_transform_inv_hdn(boxes_o, box_deltas_o)
+            pred_boxes_o = bbox_transform_inv_net(boxes_o, box_deltas_o)
 
         if clip:
             pred_boxes_o = clip_boxes(pred_boxes_o, im_info[0][:2])

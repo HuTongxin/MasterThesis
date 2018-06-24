@@ -12,11 +12,11 @@ import torch
 import cv2
 
 from faster_rcnn import network
-from faster_rcnn.MSDN import Hierarchical_Descriptive_Model
+from faster_rcnn.FullNet import Full_Net
 from faster_rcnn.utils.timer import Timer
 from faster_rcnn.fast_rcnn.config import cfg
 from faster_rcnn.datasets.visual_genome_loader import visual_genome
-from faster_rcnn.utils.HDN_utils import get_model_name, group_features
+from faster_rcnn.utils.net_utils import get_model_name, group_features
 
 import pdb
 
@@ -91,23 +91,23 @@ def main():
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=8, pin_memory=True)
 
     # Model declaration
-    net = Hierarchical_Descriptive_Model(nhidden=args.feature_len,
-                 n_object_cats=train_set.num_object_classes, 
-                 n_predicate_cats=train_set.num_predicate_classes, 
-                 n_vocab=train_set.voc_size,
-                 voc_sign=train_set.voc_sign,
-                 object_loss_weight=train_set.inverse_weight_object, 
-                 predicate_loss_weight=train_set.inverse_weight_predicate,
-                 dropout=args.dropout, 
-                 use_kmeans_anchors=not args.use_normal_anchors, 
-                 use_kernel = args.use_kernel_function,
-                 disable_spatial_model = args.disable_spatial_model,
-                 spatial_type = args.spatial_type,
-                 pool_type = args.pool_type,
-                 disable_iteration_model = args.disable_iteration_model,
-                 iteration_type = args.iteration_type,
-                 idx2obj=train_set._object_classes,
-                 idx2rel=train_set._predicate_classes)
+    net = Full_Net(nhidden=args.feature_len,
+                   n_object_cats=train_set.num_object_classes,
+                   n_predicate_cats=train_set.num_predicate_classes,
+                   n_vocab=train_set.voc_size,
+                   voc_sign=train_set.voc_sign,
+                   object_loss_weight=train_set.inverse_weight_object,
+                   predicate_loss_weight=train_set.inverse_weight_predicate,
+                   dropout=args.dropout,
+                   use_kmeans_anchors=not args.use_normal_anchors,
+                   use_kernel = args.use_kernel_function,
+                   disable_spatial_model = args.disable_spatial_model,
+                   spatial_type = args.spatial_type,
+                   pool_type = args.pool_type,
+                   disable_iteration_model = args.disable_iteration_model,
+                   iteration_type = args.iteration_type,
+                   idx2obj=train_set._object_classes,
+                   idx2rel=train_set._predicate_classes)
 
     params = list(net.parameters())
     for param in params:
